@@ -186,6 +186,7 @@ export default Plugin.define({
             empty: manager.query.trim() === "" ? "No pending waits." : "No results found",
             actions: [
               { title: "actions", label: "enter" },
+              { title: "add", label: "ctrl+a" },
               { title: "delete", label: "ctrl+d" },
               { title: "edit", label: "ctrl+e" },
             ],
@@ -205,6 +206,14 @@ export default Plugin.define({
             draft.open = false
           }),
       )
+    }
+
+    /** ctrl+a: schedule a new wait, then return to the manager. */
+    const quickAdd = async () => {
+      await schedule()
+      // Submitting the schedule dialog clears the whole dialog stack, taking
+      // the manager underneath with it, so come back rather than refresh.
+      await openMenu()
     }
 
     /** ctrl+d: cancel the highlighted wait without leaving the manager. */
@@ -232,7 +241,7 @@ export default Plugin.define({
         await run(store.update({ ...wait, prompt: edited.trim() }))
         ctx.ui.toast.show({ title: "Waits", variant: "success", message: `Updated ${wait.id}.` })
       }
-      await refreshManager()
+      await openMenu()
     }
 
     /** The action menu for one wait, shared by the list and the sidebar. */
@@ -411,6 +420,13 @@ export default Plugin.define({
               group: "Waits",
               bind: "up",
               run: () => move(-1),
+            },
+            {
+              id: "waits.manager.add",
+              title: "Schedule a new wait",
+              group: "Waits",
+              bind: "ctrl+a",
+              run: () => void quickAdd(),
             },
             {
               id: "waits.manager.delete",
