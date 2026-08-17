@@ -13,7 +13,9 @@ export interface Interface {
   readonly deliver: (wait: Wait) => Effect.Effect<void>
 }
 
-export class Service extends Context.Service<Service, Interface>()("opencode-wait/Delivery") {}
+export class Service extends Context.Service<Service, Interface>()(
+  "opencode-schedule-prompt/Delivery",
+) {}
 
 export const layer = (ctx: Plugin.Context, options: Resolved): Layer.Layer<Service> =>
   Layer.succeed(
@@ -31,7 +33,7 @@ export const layer = (ctx: Plugin.Context, options: Resolved): Layer.Layer<Servi
             // The wait has already matured; nothing upstream can retry it, so
             // a failed delivery is reported rather than propagated.
             Effect.catchCause((cause) =>
-              Effect.logError(`opencode-wait: failed to deliver wait ${wait.id}`, cause),
+              Effect.logError(`opencode-schedule-prompt: failed to deliver wait ${wait.id}`, cause),
             ),
           )
       }),

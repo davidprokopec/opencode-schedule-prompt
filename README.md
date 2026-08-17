@@ -1,4 +1,4 @@
-# opencode-wait
+# opencode-schedule-prompt
 
 Defer a prompt in [OpenCode V2](https://opencode.ai/v2/docs/). Say what you want
 and when you want it, and OpenCode sends it to itself later.
@@ -19,7 +19,7 @@ OpenCode acts on it exactly as if you had typed it yourself.
 ```jsonc
 // opencode.json(c)
 {
-  "plugins": ["opencode-wait"],
+  "plugins": ["opencode-schedule-prompt"],
 }
 ```
 
@@ -29,7 +29,7 @@ With options:
 {
   "plugins": [
     {
-      "package": "opencode-wait",
+      "package": "opencode-schedule-prompt",
       "options": {
         "delivery": "queue",
       },
@@ -123,7 +123,7 @@ To run it against a local checkout, point a config entry at the file:
 
 ```jsonc
 {
-  "plugins": ["/absolute/path/to/opencode-wait/src/index.ts"],
+  "plugins": ["/absolute/path/to/opencode-schedule-prompt/src/index.ts"],
 }
 ```
 

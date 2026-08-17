@@ -5,7 +5,7 @@ import { Duration, Effect, Schema } from "effect"
 export const maximum: Duration.Duration = Duration.days(30)
 
 export class InvalidDuration extends Schema.TaggedErrorClass<InvalidDuration>()(
-  "opencode-wait/InvalidDuration",
+  "opencode-schedule-prompt/InvalidDuration",
   {
     input: Schema.String,
     reason: Schema.String,

@@ -7,7 +7,7 @@ import * as Scheduler from "./scheduler.ts"
 import * as Tools from "./tools.ts"
 
 export default Plugin.define({
-  id: "opencode-wait",
+  id: "opencode-schedule-prompt",
   effect: (ctx) =>
     Effect.gen(function* () {
       const options = yield* Options.resolve(ctx.options)

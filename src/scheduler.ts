@@ -20,7 +20,9 @@ export interface Interface {
   readonly list: (sessionID: Session.ID) => Effect.Effect<ReadonlyArray<Wait>>
 }
 
-export class Service extends Context.Service<Service, Interface>()("opencode-wait/Scheduler") {}
+export class Service extends Context.Service<Service, Interface>()(
+  "opencode-schedule-prompt/Scheduler",
+) {}
 
 const byFiringOrder = (waits: Iterable<Wait>): ReadonlyArray<Wait> =>
   [...waits].sort((left, right) => left.firesAt - right.firesAt)
