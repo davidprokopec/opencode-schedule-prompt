@@ -1,6 +1,7 @@
 import { watch } from "node:fs"
 import { Plugin } from "@opencode-ai/plugin/effect"
 import { Context, Effect, Layer } from "effect"
+import * as Commands from "./commands.ts"
 import * as Delivery from "./delivery.ts"
 import * as Node from "./node.ts"
 import * as Options from "./options.ts"
@@ -49,9 +50,21 @@ export default Plugin.define({
         (watcher) => Effect.sync(() => watcher?.close()),
       )
 
+      // The model-facing surface doubles as the fallback for clients without
+      // a plugin runtime, such as the web and desktop apps: the templates make
+      // the agent call the tools, costing one model turn. The TUI's own slash
+      // commands run client side before submission, so they win there.
       if (options.tools) {
         yield* ctx.tool.transform((tools) => {
           for (const tool of Tools.all(supervisor)) tools.add(tool)
+        })
+        yield* ctx.command.transform((commands) => {
+          for (const definition of Commands.definitions) {
+            commands.update(definition.name, (command) => {
+              command.description = definition.description
+              command.template = definition.template
+            })
+          }
         })
       }
     }),
@@ -61,4 +74,4 @@ class SupervisorTag extends Context.Service<SupervisorTag, Supervisor.Interface>
   "opencode-waits/Supervisor",
 ) {}
 
-export { Delivery, Options, Store, Supervisor, Tools }
+export { Commands, Delivery, Options, Store, Supervisor, Tools }

@@ -124,8 +124,17 @@ TUI half only records the wait to disk, and the **server** half — running in t
 background service — owns the timers and delivers the prompt.
 
 The plugin can also expose `wait_schedule`, `wait_list` and `wait_cancel` as
-tools so the agent can schedule work itself. They are **off by default**, since
-every exposed tool costs schema tokens in every request:
+tools so the agent can schedule work itself. Enabling them also registers
+`/wait`, `/wait-list` and `/wait-cancel` as server-side commands — the fallback
+for clients without a plugin runtime, such as the **web and desktop apps**.
+There the command is a prompt template that makes the agent call the tool, so
+it costs one model turn; in the TUI the plugin's own model-free commands
+intercept first, so nothing changes.
+
+Both are **off by default**, since every exposed tool costs schema tokens in
+every request. In the TUI this option also doubles the wait entries in slash
+completion — the client-side command and the server fallback share names; the
+client one always wins on submit:
 
 ```jsonc
 { "package": "opencode-waits", "options": { "tools": true } }
