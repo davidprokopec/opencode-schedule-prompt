@@ -103,7 +103,7 @@ export const Manager = (props: {
       </box>
     )}
 
-    <box flexDirection="row" gap={2} paddingLeft={4} paddingRight={2}>
+    <box flexDirection="row" gap={2} paddingLeft={4} paddingRight={2} paddingBottom={1}>
       {props.actions.map((action) => (
         <text>
           <b style={{ fg: props.colors.text }}>{action.title} </b>
