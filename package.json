@@ -1,15 +1,15 @@
 {
-  "name": "opencode-schedule-prompt",
+  "name": "opencode-waits",
   "version": "0.1.0",
   "description": "OpenCode V2 plugin that defers a prompt: /wait 1hour implement this",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/davidprokopec/opencode-schedule-prompt.git"
+    "url": "git+https://github.com/davidprokopec/opencode-waits.git"
   },
-  "homepage": "https://github.com/davidprokopec/opencode-schedule-prompt#readme",
-  "bugs": "https://github.com/davidprokopec/opencode-schedule-prompt/issues",
+  "homepage": "https://github.com/davidprokopec/opencode-waits#readme",
+  "bugs": "https://github.com/davidprokopec/opencode-waits/issues",
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/index.ts",
@@ -26,8 +26,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "0.0.0-beta-17498",
-    "@opencode-ai/schema": "0.0.0-beta-17498",
+    "@opencode-ai/plugin": "0.0.0-beta-17519",
+    "@opencode-ai/schema": "0.0.0-beta-17519",
     "effect": "4.0.0-beta.101"
   },
   "devDependencies": {

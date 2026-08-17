@@ -1,4 +1,4 @@
-# opencode-schedule-prompt
+# opencode-waits
 
 Defer a prompt in [OpenCode V2](https://opencode.ai/v2/docs/). Say what you want
 and when you want it, and OpenCode sends it to itself later.
@@ -23,14 +23,14 @@ fires once the TUI is closed.
 ```jsonc
 // opencode.json(c) — the server half
 {
-  "plugins": ["opencode-schedule-prompt"],
+  "plugins": ["opencode-waits"],
 }
 ```
 
 ```jsonc
 // cli.json — the TUI half, which provides /wait
 {
-  "plugins": ["opencode-schedule-prompt/tui"],
+  "plugins": ["opencode-waits/tui"],
 }
 ```
 
@@ -40,7 +40,7 @@ With options:
 {
   "plugins": [
     {
-      "package": "opencode-schedule-prompt",
+      "package": "opencode-waits",
       "options": {
         "delivery": "queue",
       },
@@ -56,7 +56,7 @@ With options:
 ### Compatibility
 
 The V2 plugin API is beta. This release is built and verified against
-`@opencode-ai/plugin@0.0.0-beta-17498` (`opencode2 --version` → `v0.0.0-beta-17498`).
+`@opencode-ai/plugin@0.0.0-beta-17519` (`opencode2 --version` → `v0.0.0-beta-17519`).
 If your OpenCode is on a different beta build, check for a matching release of
 this plugin.
 
@@ -96,7 +96,7 @@ own, so `1h30` is rejected as ambiguous rather than guessed at. The maximum is
 ## Waits survive restarts
 
 Each pending wait is a JSON file under
-`$XDG_DATA_HOME/opencode-schedule-prompt/waits/` (a directory of one file per
+`$XDG_DATA_HOME/opencode-waits/waits/` (a directory of one file per
 wait, so the two halves never clobber each other's records). On startup the
 server half arms everything it finds, and fires anything already overdue
 immediately.
@@ -124,7 +124,7 @@ tools so the agent can schedule work itself. They are **off by default**, since
 every exposed tool costs schema tokens in every request:
 
 ```jsonc
-{ "package": "opencode-schedule-prompt", "options": { "tools": true } }
+{ "package": "opencode-waits", "options": { "tools": true } }
 ```
 
 ## Development
@@ -140,7 +140,7 @@ To run it against a local checkout, point a config entry at the file:
 
 ```jsonc
 {
-  "plugins": ["/absolute/path/to/opencode-schedule-prompt/src/index.ts"],
+  "plugins": ["/absolute/path/to/opencode-waits/src/index.ts"],
 }
 ```
 

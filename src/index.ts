@@ -9,7 +9,7 @@ import * as Supervisor from "./supervisor.ts"
 import * as Tools from "./tools.ts"
 
 export default Plugin.define({
-  id: "opencode-schedule-prompt",
+  id: "opencode-waits",
   effect: (ctx) =>
     Effect.gen(function* () {
       const options = yield* Options.resolve(ctx.options)
@@ -58,7 +58,7 @@ export default Plugin.define({
 })
 
 class SupervisorTag extends Context.Service<SupervisorTag, Supervisor.Interface>()(
-  "opencode-schedule-prompt/Supervisor",
+  "opencode-waits/Supervisor",
 ) {}
 
 export { Delivery, Options, Store, Supervisor, Tools }

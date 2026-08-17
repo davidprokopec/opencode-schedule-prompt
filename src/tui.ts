@@ -1,13 +1,12 @@
 import { Plugin } from "@opencode-ai/plugin/tui"
 import { Duration, Effect } from "effect"
-
-type Action = "send" | "delete" | "edit" | "reschedule"
-
 import type { Wait } from "./domain.ts"
 import * as WaitDuration from "./duration.ts"
 import * as Node from "./node.ts"
 import { type Row, Waits } from "./sidebar.tsx"
 import * as Store from "./store.ts"
+
+type Action = "send" | "delete" | "edit" | "reschedule"
 
 /**
  * The trigger half of the plugin.
@@ -22,7 +21,7 @@ import * as Store from "./store.ts"
  * still fires once the TUI is closed.
  */
 export default Plugin.define({
-  id: "opencode-schedule-prompt",
+  id: "opencode-waits",
   setup: (ctx) => {
     const store = Store.make(Node.fileSystem, Store.directory())
     const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
@@ -50,9 +49,6 @@ export default Plugin.define({
     /** Rounded to whole seconds; millisecond precision is just noise here. */
     const until = (firesAt: number, now: number): string =>
       Duration.format(Duration.seconds(Math.max(0, Math.round((firesAt - now) / 1000))))
-
-    const describe = (wait: Wait, now: number): string =>
-      `${wait.id}  in ${Duration.format(Duration.millis(Math.max(0, wait.firesAt - now)))}  ${JSON.stringify(wait.prompt)}`
 
     const fail = (message: string) =>
       ctx.ui.toast.show({ message, variant: "error", title: "Waits" })
@@ -96,7 +92,7 @@ export default Plugin.define({
           store.create({
             sessionID: session as Wait["sessionID"],
             prompt,
-            duration: duration,
+            duration,
             createdAt: now,
             firesAt: now + Duration.toMillis(duration),
           }),
@@ -109,15 +105,6 @@ export default Plugin.define({
       } catch (cause) {
         fail(`Could not save the wait: ${cause instanceof Error ? cause.message : String(cause)}`)
       }
-    }
-
-    /**
-     * The wait manager: a navigable list of every pending wait, with keys that
-     * act on the highlighted one. Waits from other sessions are shown too, so
-     * one scheduled elsewhere can still be found.
-     */
-    const reload = async (): Promise<ReadonlyArray<Wait>> => {
-      return await run(store.list)
     }
 
     /**
@@ -168,11 +155,9 @@ export default Plugin.define({
 
     /** Runs one manager action against a wait. */
     const act = async (action: Action, id: string) => {
-      const target = id
-      if (target === undefined) return
       const waits = await run(store.list)
-      const wait = waits.find((candidate) => candidate.id === target)
-      if (wait === undefined) return void fail(`Wait ${target} is gone.`)
+      const wait = waits.find((candidate) => candidate.id === id)
+      if (wait === undefined) return void fail(`Wait ${id} is gone.`)
 
       const done = (message: string) => {
         ctx.ui.dialog.clear()
@@ -185,8 +170,10 @@ export default Plugin.define({
       }
 
       if (action === "send") {
-        // Deleted first so the server half cannot also deliver it.
-        await run(store.remove(wait.id))
+        // Claimed first so the server half cannot also deliver it; losing the
+        // claim means it is already on its way.
+        const claimed = await run(store.claim(wait.id))
+        if (!claimed) return void fail(`${wait.id} was already delivered or cancelled.`)
         await ctx.client.session.prompt({ sessionID: wait.sessionID, text: wait.prompt })
         return done(`Sent ${wait.id} now.`)
       }
@@ -267,8 +254,6 @@ export default Plugin.define({
       initial: { rows: [] },
     })
 
-    // Reactive so the manager's keymap layer can enable itself only while the
-    // dialog is open; a plain boolean would not re-evaluate.
     const refresh = async () => {
       const waits = await run(store.list)
       const now = Date.now()
@@ -311,7 +296,7 @@ export default Plugin.define({
           mode: "global",
           commands: [
             {
-              id: "schedule-prompt.wait",
+              id: "waits.schedule",
               title: "Schedule a wait",
               description: "Send a prompt to this session after a delay, e.g. /wait 1hour do it",
               group: "Waits",
@@ -320,7 +305,7 @@ export default Plugin.define({
               run: (input) => void schedule(input),
             },
             {
-              id: "schedule-prompt.list",
+              id: "waits.list",
               title: "View waits",
               description: "Browse pending scheduled prompts and cancel one",
               group: "Waits",
@@ -329,7 +314,7 @@ export default Plugin.define({
               run: () => void list(),
             },
             {
-              id: "schedule-prompt.cancel",
+              id: "waits.cancel",
               title: "Cancel a wait",
               description: "Cancel a scheduled prompt by id, or all of them",
               group: "Waits",

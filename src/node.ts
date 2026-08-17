@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { FileSystem } from "./store.ts"
 
@@ -29,4 +29,22 @@ export const fileSystem: FileSystem = {
   remove: async (path) => {
     await rm(path)
   },
+  // `unlink` rather than `rm`: `rm` checks that the path exists and then
+  // swallows an ENOENT from the removal itself, so two concurrent calls both
+  // report success and both would deliver. A bare unlink is one syscall, and
+  // exactly one racer can win it.
+  claim: async (path) => {
+    try {
+      await unlink(path)
+      return true
+    } catch (cause) {
+      // ENOENT means someone else unlinked it first, which is a lost race
+      // rather than a failure.
+      if (isMissing(cause)) return false
+      throw cause
+    }
+  },
 }
+
+const isMissing = (cause: unknown): boolean =>
+  cause instanceof Error && "code" in cause && cause.code === "ENOENT"

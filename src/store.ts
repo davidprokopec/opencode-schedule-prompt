@@ -30,14 +30,11 @@ export type WaitRecord = typeof WaitRecord.Type
 
 const decodeRecord = Schema.decodeUnknownOption(WaitRecord)
 
-export class StoreError extends Schema.TaggedErrorClass<StoreError>()(
-  "opencode-schedule-prompt/StoreError",
-  {
-    operation: Schema.String,
-    path: Schema.String,
-    reason: Schema.String,
-  },
-) {
+export class StoreError extends Schema.TaggedErrorClass<StoreError>()("opencode-waits/StoreError", {
+  operation: Schema.String,
+  path: Schema.String,
+  reason: Schema.String,
+}) {
   get display(): string {
     return `${this.operation} failed for ${this.path}: ${this.reason}`
   }
@@ -51,9 +48,9 @@ export class StoreError extends Schema.TaggedErrorClass<StoreError>()(
  * other's records.
  */
 export const directory = (env: NodeJS.ProcessEnv = process.env): string => {
-  const base = env["XDG_DATA_HOME"]?.trim()
+  const base = env.XDG_DATA_HOME?.trim()
   const root = base !== undefined && base !== "" ? base : join(homedir(), ".local", "share")
-  return join(root, "opencode-schedule-prompt", "waits")
+  return join(root, "opencode-waits", "waits")
 }
 
 export const toWait = (record: WaitRecord): Wait => ({
@@ -132,6 +129,8 @@ export interface FileSystem {
   readonly writeNew: (path: string, contents: string) => Promise<void>
   readonly writeOver: (path: string, contents: string) => Promise<void>
   readonly remove: (path: string) => Promise<void>
+  /** `true` when this call unlinked the file, `false` when it was already gone. */
+  readonly claim: (path: string) => Promise<boolean>
 }
 
 export interface Interface {
@@ -139,6 +138,14 @@ export interface Interface {
   readonly create: (input: Omit<Wait, "id" | "attempts">) => Effect.Effect<Wait, StoreError>
   readonly update: (wait: Wait) => Effect.Effect<void, StoreError>
   readonly remove: (id: WaitID) => Effect.Effect<void, StoreError>
+  /**
+   * Takes exclusive ownership of a wait by removing its record.
+   *
+   * `true` means this call removed the file and so owns the wait; `false`
+   * means it was already gone, because another process claimed it first or it
+   * never existed. Unlink is atomic, so exactly one racer can get `true`.
+   */
+  readonly claim: (id: WaitID) => Effect.Effect<boolean, StoreError>
 }
 
 export const make = (fs: FileSystem, root: string): Interface => {
@@ -205,5 +212,8 @@ export const make = (fs: FileSystem, root: string): Interface => {
       Effect.tryPromise({ try: () => fs.remove(path(id)), catch: fail("remove", path(id)) }).pipe(
         Effect.orElseSucceed(() => undefined),
       ),
+
+    claim: (id) =>
+      Effect.tryPromise({ try: () => fs.claim(path(id)), catch: fail("claim", path(id)) }),
   }
 }
