@@ -33,10 +33,15 @@ export const Waits = (props: {
         // mouseup to land outside the new dialog, which closes it instantly.
         onMouseUp={() => props.onOpen(row.id)}
       >
-        <text fg={row.mine ? normal : muted}>
+        {/* Not selectable: a click on selectable text starts a selection, and
+            the dialog backdrop swallows the next click whenever a selection
+            exists, so opening and closing would each need two clicks. */}
+        <text selectable={false} fg={row.mine ? normal : muted}>
           {row.id} {row.prompt}
         </text>
-        <text fg={muted}>{row.countdown}</text>
+        <text selectable={false} fg={muted}>
+          {row.countdown}
+        </text>
       </box>
     ))}
   </box>
