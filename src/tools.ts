@@ -58,9 +58,12 @@ const listTool = (scheduler: Scheduler) =>
   ({
     name: "wait_list",
     description: "List the prompts scheduled by wait_schedule that are still pending.",
-    input: Schema.Struct({}),
+    // Declared as raw JSON Schema rather than `Schema.Struct({})`, which
+    // generates `anyOf: [object, array]` with no top-level `type`. Anthropic
+    // rejects every request in the session when a tool schema omits `type`.
+    input: { type: "object", properties: {}, additionalProperties: false },
     options: { codemode: false },
-    execute: Effect.fn("wait_list")(function* (_input, context) {
+    execute: Effect.fn("wait_list")(function* (_input: unknown, context) {
       const waits = yield* scheduler.list(context.sessionID)
       if (waits.length === 0) return { content: "No pending waits in this session." }
       const now = yield* Clock.currentTimeMillis
@@ -87,6 +90,10 @@ const cancelTool = (scheduler: Scheduler) =>
     }),
     options: { codemode: false },
     execute: Effect.fn("wait_cancel")(function* (input, context) {
+      // `Schema.optional` renders as `anyOf: [string, null]`, so a provider may
+      // legitimately send null rather than omitting the field.
+      const id = typeof input.id === "string" ? input.id.trim() : ""
+
       if (input.all === true) {
         const cancelled = yield* scheduler.cancelAll(context.sessionID)
         if (cancelled.length === 0) return { content: "No pending waits to cancel." }
@@ -95,7 +102,7 @@ const cancelTool = (scheduler: Scheduler) =>
         }
       }
 
-      if (input.id === undefined || input.id.trim() === "") {
+      if (id === "") {
         const waits = yield* scheduler.list(context.sessionID)
         return yield* Effect.fail(
           new Tool.Error({
@@ -109,12 +116,12 @@ const cancelTool = (scheduler: Scheduler) =>
         )
       }
 
-      const cancelled = yield* scheduler.cancel(context.sessionID, input.id.trim())
+      const cancelled = yield* scheduler.cancel(context.sessionID, id)
       if (Option.isNone(cancelled)) {
         const waits = yield* scheduler.list(context.sessionID)
         return yield* Effect.fail(
           new Tool.Error({
-            message: `No pending wait ${JSON.stringify(input.id)} in this session.${
+            message: `No pending wait ${JSON.stringify(id)} in this session.${
               waits.length === 0 ? "" : ` Pending: ${waits.map((wait) => wait.id).join(", ")}`
             }`,
           }),

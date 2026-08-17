@@ -4,6 +4,12 @@
   "description": "OpenCode V2 plugin that defers a prompt: /wait 1hour implement this",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidprokopec/opencode-wait.git"
+  },
+  "homepage": "https://github.com/davidprokopec/opencode-wait#readme",
+  "bugs": "https://github.com/davidprokopec/opencode-wait/issues",
   "exports": "./src/index.ts",
   "files": ["src", "README.md", "LICENSE"],
   "keywords": ["opencode", "opencode-plugin", "effect", "scheduler", "delay"],
