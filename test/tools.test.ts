@@ -14,6 +14,7 @@ const makeWait = (overrides: Partial<Wait> = {}): Wait => ({
   duration: Duration.minutes(1),
   createdAt: 0,
   firesAt: 60_000,
+  attempts: 0,
   ...overrides,
 })
 

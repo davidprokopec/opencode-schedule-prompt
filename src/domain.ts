@@ -19,4 +19,12 @@ export interface Wait {
   readonly createdAt: number
   /** Epoch millis when the prompt is delivered. */
   readonly firesAt: number
+  /**
+   * Delivery attempts already made.
+   *
+   * A delivery can fail because the provider is rate limited, which is the
+   * situation a wait is most often scheduled for, so it is re-armed with
+   * backoff rather than dropped.
+   */
+  readonly attempts: number
 }

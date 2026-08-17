@@ -86,6 +86,7 @@ export const make: Effect.Effect<Interface, never, Delivery.Service | Scope.Scop
         duration: input.duration,
         createdAt: now,
         firesAt: now + Duration.toMillis(input.duration),
+        attempts: 0,
       }
 
       yield* Ref.update(pending, (waits) => new Map(waits).set(wait.id, wait))
