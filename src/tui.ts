@@ -124,8 +124,7 @@ export default Plugin.define({
       return waits.map((wait) => ({
         id: wait.id,
         title: `${wait.id}  ${wait.prompt}`,
-        meta:
-          `in ${until(wait.firesAt, now)}` + (wait.attempts > 0 ? `, ${wait.attempts} failed` : ""),
+        meta: `in ${until(wait.firesAt, now)}${wait.attempts > 0 ? `, ${wait.attempts} failed` : ""}`,
         category: wait.sessionID === session ? "This session" : "Other sessions",
       }))
     }
