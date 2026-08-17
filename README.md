@@ -101,9 +101,13 @@ wait, so the two halves never clobber each other's records). On startup the
 server half arms everything it finds, and fires anything already overdue
 immediately.
 
-If delivery fails — most likely because you are still rate limited — the wait is
-re-armed after 5m, 15m and 45m before being given up. If the target session no
-longer exists, the wait is dropped.
+Rate limits at fire time are OpenCode's job, not the plugin's: submitting the
+prompt succeeds even while limited, and OpenCode retries the model call itself
+with backoff, honouring retry-after. Even if that fails, the prompt stays in
+the session as an ordinary message. The plugin only re-arms — after 5m, 15m and
+45m — when the prompt cannot be *submitted* at all, such as when the session is
+busy with a conflicting operation. If the target session no longer exists, the
+wait is dropped.
 
 ## How it works, and why it is split in two
 
