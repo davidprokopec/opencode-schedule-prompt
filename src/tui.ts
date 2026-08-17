@@ -2,6 +2,7 @@ import { Plugin } from "@opencode-ai/plugin/tui"
 import { Duration, Effect } from "effect"
 import type { Wait } from "./domain.ts"
 import * as WaitDuration from "./duration.ts"
+import { WaitMenu } from "./menu.tsx"
 import * as Node from "./node.ts"
 import { type Row, Waits } from "./sidebar.tsx"
 import * as Store from "./store.ts"
@@ -96,46 +97,121 @@ export default Plugin.define({
     }
 
     /**
-     * Opens a picker of pending waits, grouped like the native plugin and
-     * session lists, and offers to cancel the one that is chosen.
-     *
-     * Every pending wait is shown, grouped by whether it belongs to the
-     * session you are looking at, so a wait scheduled elsewhere can still be
-     * found and cancelled.
+     * The wait manager: a navigable list of every pending wait, with keys that
+     * act on the highlighted one. Waits from other sessions are shown too, so
+     * one scheduled elsewhere can still be found.
      */
-    const list = async () => {
-      const session = currentSession()
+    const highlighted = { id: undefined as string | undefined }
+
+    const reload = async (): Promise<ReadonlyArray<Wait>> => {
       const waits = await run(store.list)
+      if (highlighted.id === undefined) highlighted.id = waits[0]?.id
+      return waits
+    }
+
+    const openMenu = async () => {
+      const waits = await reload()
       if (waits.length === 0) {
+        setMenuOpen(false)
         return void ctx.ui.toast.show({ title: "Waits", message: "No pending waits." })
       }
 
       const now = Date.now()
-      const chosen = await ctx.ui.dialog.select<string>({
-        title: `Waits (${waits.length} pending)`,
-        placeholder: "Select a wait to cancel",
-        options: waits.map((wait) => ({
-          title: `${wait.id}  ${wait.prompt}`,
-          value: wait.id,
-          description:
-            `fires in ${until(wait.firesAt, now)}` +
-            (wait.attempts > 0 ? `  ·  ${wait.attempts} failed attempt(s)` : ""),
-          category: wait.sessionID === session ? "This session" : "Other sessions",
-        })),
-      })
-      if (chosen === undefined) return
+      const session = currentSession()
+      const rows = waits.map((wait) => ({
+        id: wait.id,
+        label: `${wait.id}  ${wait.prompt}`,
+        description:
+          `fires in ${until(wait.firesAt, now)}` +
+          (wait.sessionID === session ? "" : "  ·  another session") +
+          (wait.attempts > 0 ? `  ·  ${wait.attempts} failed attempt(s)` : ""),
+      }))
 
-      const wait = waits.find((candidate) => candidate.id === chosen)
-      if (wait === undefined) return
-      const confirmed = await ctx.ui.dialog.confirm({
-        title: `Cancel ${wait.id}?`,
-        message: wait.prompt,
-        label: { confirm: "Cancel wait", cancel: "Keep" },
-      })
-      if (confirmed !== true) return
-      await run(store.remove(wait.id))
-      ctx.ui.toast.show({ title: "Waits", variant: "success", message: `Cancelled ${wait.id}.` })
+      highlighted.id = rows[0]?.id
+      setMenuOpen(true)
+      ctx.ui.dialog.show(
+        () =>
+          WaitMenu({
+            title: `Waits (${rows.length} pending)`,
+            rows,
+            hint: "enter send now · d delete · e edit prompt · r reschedule · esc close",
+            onHighlight: (id) => {
+              highlighted.id = id
+            },
+            onSelect: (id) => void act("send", id),
+          }),
+        () => setMenuOpen(false),
+      )
     }
+
+    /** Runs one manager action against a wait, then closes the dialog. */
+    const act = async (action: "send" | "delete" | "edit" | "reschedule", id?: string) => {
+      const target = id ?? highlighted.id
+      if (target === undefined) return
+      const waits = await run(store.list)
+      const wait = waits.find((candidate) => candidate.id === target)
+      if (wait === undefined) return void fail(`Wait ${target} is gone.`)
+
+      const done = (message: string) => {
+        ctx.ui.dialog.clear()
+        setMenuOpen(false)
+        ctx.ui.toast.show({ title: "Waits", variant: "success", message })
+      }
+
+      if (action === "delete") {
+        await run(store.remove(wait.id))
+        return done(`Cancelled ${wait.id}.`)
+      }
+
+      if (action === "send") {
+        // Deleted first so the server half cannot also deliver it.
+        await run(store.remove(wait.id))
+        await ctx.client.session.prompt({ sessionID: wait.sessionID, text: wait.prompt })
+        return done(`Sent ${wait.id} now.`)
+      }
+
+      if (action === "edit") {
+        ctx.ui.dialog.clear()
+        setMenuOpen(false)
+        const edited = await ctx.ui.dialog.prompt({
+          title: `Edit ${wait.id}`,
+          description: "The prompt delivered when this wait fires",
+          value: wait.prompt,
+        })
+        if (edited === undefined || edited.trim() === "") return
+        await run(store.update({ ...wait, prompt: edited.trim() }))
+        return void ctx.ui.toast.show({
+          title: "Waits",
+          variant: "success",
+          message: `Updated ${wait.id}.`,
+        })
+      }
+
+      ctx.ui.dialog.clear()
+      setMenuOpen(false)
+      const answer = await ctx.ui.dialog.prompt({
+        title: `Reschedule ${wait.id}`,
+        description: "How long from now, e.g. 30m, 2h, 1 day",
+        value: "1h",
+      })
+      if (answer === undefined || answer.trim() === "") return
+      const parsed = await Effect.runPromise(
+        WaitDuration.parse(answer).pipe(
+          Effect.map((duration) => ({ ok: true as const, duration })),
+          Effect.catch((error) => Effect.succeed({ ok: false as const, message: error.display })),
+        ),
+      )
+      if (!parsed.ok) return void fail(parsed.message)
+      const at = Date.now() + Duration.toMillis(parsed.duration)
+      await run(store.update({ ...wait, duration: parsed.duration, firesAt: at, attempts: 0 }))
+      ctx.ui.toast.show({
+        title: "Waits",
+        variant: "success",
+        message: `${wait.id} now fires in ${Duration.format(parsed.duration)}.`,
+      })
+    }
+
+    const list = () => void openMenu()
 
     const cancel = async (input?: string) => {
       const session = currentSession()
@@ -169,6 +245,16 @@ export default Plugin.define({
     const [mirror, setMirror] = ctx.storage.memory<{ rows: Row[] }>("sidebar", {
       initial: { rows: [] },
     })
+
+    // Reactive so the manager's keymap layer can enable itself only while the
+    // dialog is open; a plain boolean would not re-evaluate.
+    const [menu, mutateMenu] = ctx.storage.memory<{ open: boolean }>("menu", {
+      initial: { open: false },
+    })
+    const setMenuOpen = (open: boolean) =>
+      mutateMenu((draft) => {
+        draft.open = open
+      })
 
     const refresh = async () => {
       const waits = await run(store.list)
@@ -204,6 +290,44 @@ export default Plugin.define({
     ctx.ui.slot({
       append: "app",
       render: () => {
+        // Single letter actions on the highlighted wait. Scoped to the manager
+        // dialog so they cannot shadow anything while typing.
+        ctx.keymap.layer(() => ({
+          mode: "global",
+          priority: 100,
+          enabled: () => menu.open,
+          commands: [
+            {
+              id: "schedule-prompt.menu.delete",
+              title: "Delete highlighted wait",
+              group: "Waits",
+              bind: "d",
+              run: () => void act("delete"),
+            },
+            {
+              id: "schedule-prompt.menu.send",
+              title: "Send highlighted wait now",
+              group: "Waits",
+              bind: "s",
+              run: () => void act("send"),
+            },
+            {
+              id: "schedule-prompt.menu.edit",
+              title: "Edit highlighted wait",
+              group: "Waits",
+              bind: "e",
+              run: () => void act("edit"),
+            },
+            {
+              id: "schedule-prompt.menu.reschedule",
+              title: "Reschedule highlighted wait",
+              group: "Waits",
+              bind: "r",
+              run: () => void act("reschedule"),
+            },
+          ],
+        }))
+
         ctx.keymap.layer(() => ({
           // Without `global` the layer defaults to the `base` input mode and
           // is unreachable while the prompt is focused, so the commands run
