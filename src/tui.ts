@@ -43,6 +43,10 @@ export default Plugin.define({
       return created.id
     }
 
+    /** Rounded to whole seconds; millisecond precision is just noise here. */
+    const until = (firesAt: number, now: number): string =>
+      Duration.format(Duration.seconds(Math.max(0, Math.round((firesAt - now) / 1000))))
+
     const describe = (wait: Wait, now: number): string =>
       `${wait.id}  in ${Duration.format(Duration.millis(Math.max(0, wait.firesAt - now)))}  ${JSON.stringify(wait.prompt)}`
 
@@ -90,23 +94,46 @@ export default Plugin.define({
       }
     }
 
-    const list = async (input?: string) => {
+    /**
+     * Opens a picker of pending waits, grouped like the native plugin and
+     * session lists, and offers to cancel the one that is chosen.
+     *
+     * Every pending wait is shown, grouped by whether it belongs to the
+     * session you are looking at, so a wait scheduled elsewhere can still be
+     * found and cancelled.
+     */
+    const list = async () => {
       const session = currentSession()
-      const all = (input ?? "").trim() === "all"
       const waits = await run(store.list)
-      const mine = all ? waits : waits.filter((wait) => wait.sessionID === session)
-      if (mine.length === 0) {
-        return void ctx.ui.toast.show({
-          title: "wait",
-          message: all ? "No pending waits." : "No pending waits in this session.",
-        })
+      if (waits.length === 0) {
+        return void ctx.ui.toast.show({ title: "Waits", message: "No pending waits." })
       }
+
       const now = Date.now()
-      ctx.ui.toast.show({
-        title: `wait (${mine.length} pending)`,
-        message: mine.map((wait) => describe(wait, now)).join("\n"),
-        duration: 8000,
+      const chosen = await ctx.ui.dialog.select<string>({
+        title: `Waits (${waits.length} pending)`,
+        placeholder: "Select a wait to cancel",
+        options: waits.map((wait) => ({
+          title: `${wait.id}  ${wait.prompt}`,
+          value: wait.id,
+          description:
+            `fires in ${until(wait.firesAt, now)}` +
+            (wait.attempts > 0 ? `  ·  ${wait.attempts} failed attempt(s)` : ""),
+          category: wait.sessionID === session ? "This session" : "Other sessions",
+        })),
       })
+      if (chosen === undefined) return
+
+      const wait = waits.find((candidate) => candidate.id === chosen)
+      if (wait === undefined) return
+      const confirmed = await ctx.ui.dialog.confirm({
+        title: `Cancel ${wait.id}?`,
+        message: wait.prompt,
+        label: { confirm: "Cancel wait", cancel: "Keep" },
+      })
+      if (confirmed !== true) return
+      await run(store.remove(wait.id))
+      ctx.ui.toast.show({ title: "Waits", variant: "success", message: `Cancelled ${wait.id}.` })
     }
 
     const cancel = async (input?: string) => {
@@ -143,25 +170,36 @@ export default Plugin.define({
       append: "app",
       render: () => {
         ctx.keymap.layer(() => ({
+          // Without `global` the layer defaults to the `base` input mode and
+          // is unreachable while the prompt is focused, so the commands run
+          // when typed in full but appear in neither slash completion nor the
+          // ctrl+p palette.
+          mode: "global",
           commands: [
             {
               id: "schedule-prompt.wait",
-              title: "Schedule a prompt for later",
-              group: "wait",
+              title: "Schedule a prompt",
+              description: "Send a prompt to this session after a delay, e.g. /wait 1hour do it",
+              group: "Waits",
+              palette: true,
               slash: { name: "wait", arguments: true },
               run: (input) => void schedule(input),
             },
             {
               id: "schedule-prompt.list",
-              title: "List scheduled prompts",
-              group: "wait",
-              slash: { name: "wait-list", arguments: true },
-              run: (input) => void list(input),
+              title: "View waits",
+              description: "Browse pending scheduled prompts and cancel one",
+              group: "Waits",
+              palette: true,
+              slash: { name: "wait-list", aliases: ["waits"] },
+              run: () => void list(),
             },
             {
               id: "schedule-prompt.cancel",
-              title: "Cancel a scheduled prompt",
-              group: "wait",
+              title: "Cancel a wait",
+              description: "Cancel a scheduled prompt by id, or all of them",
+              group: "Waits",
+              palette: true,
               slash: { name: "wait-cancel", arguments: true },
               run: (input) => void cancel(input),
             },
