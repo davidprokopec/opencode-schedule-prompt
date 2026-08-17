@@ -3,6 +3,7 @@ import { Duration, Effect } from "effect"
 import type { Wait } from "./domain.ts"
 import * as WaitDuration from "./duration.ts"
 import * as Node from "./node.ts"
+import { type Row, Waits } from "./sidebar.tsx"
 import * as Store from "./store.ts"
 
 /**
@@ -162,6 +163,40 @@ export default Plugin.define({
       ctx.ui.toast.show({ title: "wait", variant: "success", message: `Cancelled ${found.id}.` })
     }
 
+    // Mirrors the pending waits into host-owned reactive state. `storage.memory`
+    // returns the TUI's own store, so reading it in a component tracks
+    // correctly without this plugin importing solid-js itself.
+    const [mirror, setMirror] = ctx.storage.memory<{ rows: Row[] }>("sidebar", {
+      initial: { rows: [] },
+    })
+
+    const refresh = async () => {
+      const waits = await run(store.list)
+      const now = Date.now()
+      const session = currentSession()
+      const rows = waits.map((wait) => ({
+        id: wait.id,
+        prompt: wait.prompt.length > 28 ? `${wait.prompt.slice(0, 27)}…` : wait.prompt,
+        countdown: until(wait.firesAt, now),
+        mine: wait.sessionID === session,
+      }))
+      setMirror((draft) => {
+        draft.rows = rows
+      })
+    }
+
+    void refresh()
+    const ticker = setInterval(() => void refresh(), 1000)
+
+    ctx.ui.slot({
+      append: "sidebar.content",
+      render: () =>
+        Waits({
+          title: `Waits (${mirror.rows.length})`,
+          rows: mirror.rows,
+        }),
+    })
+
     // `keymap.layer` is owned by the calling component and needs a live
     // Keymap provider, so it cannot be called bare in `setup`. Claiming the
     // `app` slot gives a mounted component to register from; it renders
@@ -208,5 +243,6 @@ export default Plugin.define({
         return null
       },
     })
+    return () => clearInterval(ticker)
   },
 })
