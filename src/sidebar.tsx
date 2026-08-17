@@ -29,7 +29,9 @@ export const Waits = (props: {
       <box
         flexDirection="row"
         justifyContent="space-between"
-        onMouseDown={() => props.onOpen(row.id)}
+        // On release, not press: opening on mousedown leaves the click's
+        // mouseup to land outside the new dialog, which closes it instantly.
+        onMouseUp={() => props.onOpen(row.id)}
       >
         <text fg={row.mine ? normal : muted}>
           {row.id} {row.prompt}
