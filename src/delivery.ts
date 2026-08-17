@@ -1,39 +1,57 @@
-import type { Plugin } from "@opencode-ai/plugin/effect"
+import type { Session } from "@opencode-ai/schema/session"
 import { Context, Effect, Layer } from "effect"
 import type { Wait } from "./domain.ts"
-import type { Resolved } from "./options.ts"
+import type { Delivery as Mode, Resolved } from "./options.ts"
 
 /**
  * Sends a matured wait back into its session.
  *
- * Split out from the scheduler so tests can observe deliveries without an
+ * Split out from the supervisor so tests can observe deliveries without an
  * OpenCode server.
  */
 export interface Interface {
-  readonly deliver: (wait: Wait) => Effect.Effect<void>
+  /** `false` when the prompt could not be submitted, which re-arms the wait. */
+  readonly deliver: (wait: Wait) => Effect.Effect<boolean>
 }
 
 export class Service extends Context.Service<Service, Interface>()(
   "opencode-schedule-prompt/Delivery",
 ) {}
 
-export const layer = (ctx: Plugin.Context, options: Resolved): Layer.Layer<Service> =>
+/**
+ * The slice of the OpenCode session API this plugin needs.
+ *
+ * Narrow on purpose so the server plugin context and a plain client can both
+ * satisfy it.
+ */
+export interface SessionPort {
+  readonly prompt: (input: {
+    readonly sessionID: Session.ID
+    readonly text: string
+    readonly delivery: Mode
+  }) => Effect.Effect<unknown, unknown>
+}
+
+export const layer = (session: SessionPort, options: Resolved): Layer.Layer<Service> =>
   Layer.succeed(
     Service,
     Service.of({
       deliver: Effect.fn("Delivery.deliver")(function* (wait: Wait) {
-        yield* ctx.session
+        return yield* session
           .prompt({
             sessionID: wait.sessionID,
             text: wait.prompt,
             delivery: options.delivery,
           })
           .pipe(
-            Effect.asVoid,
-            // The wait has already matured; nothing upstream can retry it, so
-            // a failed delivery is reported rather than propagated.
+            Effect.as(true),
+            // Reported rather than propagated: the caller decides whether to
+            // re-arm, and nothing upstream of it can retry.
             Effect.catchCause((cause) =>
-              Effect.logError(`opencode-schedule-prompt: failed to deliver wait ${wait.id}`, cause),
+              Effect.logError(
+                `opencode-schedule-prompt: failed to deliver wait ${wait.id}`,
+                cause,
+              ).pipe(Effect.as(false)),
             ),
           )
       }),

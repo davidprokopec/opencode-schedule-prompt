@@ -16,10 +16,21 @@ OpenCode acts on it exactly as if you had typed it yourself.
 
 ## Install
 
+The plugin has two halves and needs an entry in **two** config files. The TUI
+half provides the commands; the server half owns the timers so a wait still
+fires once the TUI is closed.
+
 ```jsonc
-// opencode.json(c)
+// opencode.json(c) — the server half
 {
   "plugins": ["opencode-schedule-prompt"],
+}
+```
+
+```jsonc
+// cli.json — the TUI half, which provides /wait
+{
+  "plugins": ["opencode-schedule-prompt/tui"],
 }
 ```
 
@@ -82,33 +93,39 @@ the prompt.
 own, so `1h30` is rejected as ambiguous rather than guessed at. The maximum is
 30 days.
 
-## Pending waits do not survive a restart
+## Waits survive restarts
 
-Waits are held in memory for the lifetime of the plugin. They are dropped when
-OpenCode restarts, when the plugin is disabled, and when it reloads — which
-OpenCode does whenever a watched config file changes. A dropped wait is silently
-gone; it does not fire late.
+Each pending wait is a JSON file under
+`$XDG_DATA_HOME/opencode-schedule-prompt/waits/` (a directory of one file per
+wait, so the two halves never clobber each other's records). On startup the
+server half arms everything it finds, and fires anything already overdue
+immediately.
 
-For a two minute wait this never matters. For an eight hour one, treat `/wait`
-as best effort.
+If delivery fails — most likely because you are still rate limited — the wait is
+re-armed after 5m, 15m and 45m before being given up. If the target session no
+longer exists, the wait is dropped.
 
-## How it works, and why it is shaped this way
+## How it works, and why it is split in two
 
-V2 slash commands are prompt templates. A plugin can define one, but it cannot
-attach a handler to it, so `/wait` cannot run plugin code directly.
+A slash command defined by a *server* plugin is only a prompt template. Running
+one submits a prompt and schedules model execution — so it fails exactly when
+you are rate limited and most want to defer work.
 
-So `/wait` expands to a short template that instructs the agent to call the
-plugin's `wait_schedule` tool once and do nothing else. That tool parses the
-duration itself, registers the wait, and returns immediately. The delay is a
-fiber owned by the plugin's scope, not an open turn.
+A **TUI** slash command does not. The prompt matches `/wait …` and calls the
+plugin before any model dispatch, so scheduling costs no model call at all. That
+is why the trigger lives in the TUI half.
 
-The cost is one cheap model round trip at scheduling time. The benefit is that
-duration parsing, timing, delivery, and cancellation are all deterministic
-plugin code rather than something the model is trusted to get right.
+Timers cannot live there, though: they would die when you close the TUI. So the
+TUI half only records the wait to disk, and the **server** half — running in the
+background service — owns the timers and delivers the prompt.
 
-The plugin registers three tools — `wait_schedule`, `wait_list`, `wait_cancel` —
-which the agent may also use on its own, without a slash command, when it
-decides something should happen later.
+The plugin can also expose `wait_schedule`, `wait_list` and `wait_cancel` as
+tools so the agent can schedule work itself. They are **off by default**, since
+every exposed tool costs schema tokens in every request:
+
+```jsonc
+{ "package": "opencode-schedule-prompt", "options": { "tools": true } }
+```
 
 ## Development
 

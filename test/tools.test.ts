@@ -3,7 +3,7 @@ import { Session } from "@opencode-ai/schema/session"
 import { Tool } from "@opencode-ai/schema/tool"
 import { Cause, Duration, Effect, Exit, Option } from "effect"
 import type { Wait } from "../src/domain.ts"
-import type { ScheduleInput, Interface as Scheduler } from "../src/scheduler.ts"
+import type { ScheduleInput, Interface as Scheduler } from "../src/supervisor.ts"
 import * as Tools from "../src/tools.ts"
 
 /** Builds a `Wait` with sensible defaults, overridable per test. */
@@ -37,6 +37,8 @@ const stubScheduler = (
   }
 
   const scheduler: Scheduler = {
+    listAll: Effect.succeed([]),
+    sync: Effect.void,
     schedule: (input) => {
       calls.schedule.push(input)
       const wait = config.schedule

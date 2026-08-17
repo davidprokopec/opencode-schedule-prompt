@@ -2,7 +2,7 @@ import { Tool } from "@opencode-ai/schema/tool"
 import { Clock, Duration, Effect, Option, Schema } from "effect"
 import type { Wait } from "./domain.ts"
 import * as WaitDuration from "./duration.ts"
-import type { Interface as Scheduler } from "./scheduler.ts"
+import type { Interface as Scheduler } from "./supervisor.ts"
 
 /** `now` is passed in rather than read from `Date`, so it comes from the same
  * clock that produced `firesAt`. */
