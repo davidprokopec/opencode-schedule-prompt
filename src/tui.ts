@@ -2,6 +2,7 @@ import { Plugin } from "@opencode-ai/plugin/tui"
 import { Duration, Effect } from "effect"
 import type { Wait } from "./domain.ts"
 import * as WaitDuration from "./duration.ts"
+import { Manager, type ManagerRow } from "./manager.tsx"
 import * as Node from "./node.ts"
 import { type Row, Waits } from "./sidebar.tsx"
 import * as Store from "./store.ts"
@@ -107,33 +108,131 @@ export default Plugin.define({
       }
     }
 
-    /**
-     * The wait manager.
-     *
-     * Two native select dialogs rather than a bespoke component: OpenCode's
-     * own Message Actions works the same way, and `ui.dialog.select` renders
-     * the real DialogSelect, so the search, categories, full width selection
-     * bar and theming come from the host instead of being reimplemented.
-     */
-    const openMenu = async () => {
+    // Reactive so the manager re-renders on every keystroke and so its keymap
+    // layer can enable itself only while the dialog is open.
+    const [manager, mutateManager] = ctx.storage.memory<{
+      open: boolean
+      query: string
+      index: number
+      rows: ManagerRow[]
+    }>("manager", { initial: { open: false, query: "", index: 0, rows: [] } })
+
+    const managerRows = async (): Promise<ManagerRow[]> => {
       const waits = await run(store.list)
       const now = Date.now()
       const session = currentSession()
-      const chosen = await ctx.ui.dialog.select<string>({
-        title: `Waits (${waits.length} pending)`,
-        placeholder: "Search waits",
-        options: waits.map((wait) => ({
-          title: `${wait.id}  ${wait.prompt}`,
-          value: wait.id,
-          description:
-            `in ${until(wait.firesAt, now)}` +
-            (wait.attempts > 0 ? `, ${wait.attempts} failed` : ""),
-          category: wait.sessionID === session ? "This session" : "Other sessions",
-        })),
-      })
-      if (chosen === undefined) return
+      return waits.map((wait) => ({
+        id: wait.id,
+        title: `${wait.id}  ${wait.prompt}`,
+        meta:
+          `in ${until(wait.firesAt, now)}` + (wait.attempts > 0 ? `, ${wait.attempts} failed` : ""),
+        category: wait.sessionID === session ? "This session" : "Other sessions",
+      }))
+    }
 
-      await openActions(chosen)
+    /** Rows matching the search, with the highlight clamped into range. */
+    const visible = (): ReadonlyArray<ManagerRow> => {
+      const query = manager.query.trim().toLowerCase()
+      return query === ""
+        ? manager.rows
+        : manager.rows.filter((row) => row.title.toLowerCase().includes(query))
+    }
+
+    const highlighted = (): ManagerRow | undefined =>
+      visible()[Math.min(manager.index, Math.max(0, visible().length - 1))]
+
+    const move = (delta: number) =>
+      mutateManager((draft) => {
+        const count = visible().length
+        if (count === 0) return
+        draft.index = (Math.min(draft.index, count - 1) + delta + count) % count
+      })
+
+    const refreshManager = async () => {
+      const rows = await managerRows()
+      mutateManager((draft) => {
+        draft.rows = rows
+        draft.index = Math.max(0, Math.min(draft.index, rows.length - 1))
+      })
+    }
+
+    /**
+     * The wait manager, rendered by this plugin rather than through
+     * `ui.dialog.select`, which cannot express an action footer or direct
+     * keybinds; see manager.tsx.
+     */
+    const openMenu = async () => {
+      const rows = await managerRows()
+      mutateManager((draft) => {
+        draft.rows = rows
+        draft.query = ""
+        draft.index = 0
+        draft.open = true
+      })
+
+      const colors = {
+        text: ctx.theme.text.default,
+        subdued: ctx.theme.text.subdued,
+        activeText: ctx.theme.text.action.primary.focused,
+        activeBg: ctx.theme.background.action.primary.focused,
+      }
+
+      ctx.ui.dialog.show(
+        () =>
+          Manager({
+            title: `Waits (${manager.rows.length})`,
+            rows: visible(),
+            index: manager.index,
+            empty: manager.query.trim() === "" ? "No pending waits." : "No results found",
+            actions: [
+              { title: "actions", label: "enter" },
+              { title: "delete", label: "ctrl+d" },
+              { title: "edit", label: "ctrl+e" },
+            ],
+            colors,
+            onQuery: (value) =>
+              mutateManager((draft) => {
+                draft.query = value
+                draft.index = 0
+              }),
+            onSubmit: () => {
+              const row = highlighted()
+              if (row !== undefined) void openActions(row.id)
+            },
+          }),
+        () =>
+          mutateManager((draft) => {
+            draft.open = false
+          }),
+      )
+    }
+
+    /** ctrl+d: cancel the highlighted wait without leaving the manager. */
+    const quickDelete = async () => {
+      const row = highlighted()
+      if (row === undefined) return
+      await run(store.remove(row.id))
+      await refreshManager()
+      ctx.ui.toast.show({ title: "Waits", variant: "success", message: `Cancelled ${row.id}.` })
+    }
+
+    /** ctrl+e: edit the highlighted wait's prompt, then return to the list. */
+    const quickEdit = async () => {
+      const row = highlighted()
+      if (row === undefined) return
+      const waits = await run(store.list)
+      const wait = waits.find((candidate) => candidate.id === row.id)
+      if (wait === undefined) return void fail(`Wait ${row.id} is gone.`)
+      const edited = await ctx.ui.dialog.prompt({
+        title: `Edit ${wait.id}`,
+        description: "The prompt delivered when this wait fires",
+        value: wait.prompt,
+      })
+      if (edited !== undefined && edited.trim() !== "") {
+        await run(store.update({ ...wait, prompt: edited.trim() }))
+        ctx.ui.toast.show({ title: "Waits", variant: "success", message: `Updated ${wait.id}.` })
+      }
+      await refreshManager()
     }
 
     /** The action menu for one wait, shared by the list and the sidebar. */
@@ -291,6 +390,45 @@ export default Plugin.define({
     ctx.ui.slot({
       append: "app",
       render: () => {
+        // Manager keys. Enter is the search input's own submit; these cover
+        // navigation and the direct actions the footer advertises. Scoped to
+        // the open dialog so they cannot shadow anything else.
+        ctx.keymap.layer(() => ({
+          mode: "global",
+          priority: 100,
+          enabled: () => manager.open,
+          commands: [
+            {
+              id: "waits.manager.down",
+              title: "Next wait",
+              group: "Waits",
+              bind: "down",
+              run: () => move(1),
+            },
+            {
+              id: "waits.manager.up",
+              title: "Previous wait",
+              group: "Waits",
+              bind: "up",
+              run: () => move(-1),
+            },
+            {
+              id: "waits.manager.delete",
+              title: "Delete the highlighted wait",
+              group: "Waits",
+              bind: "ctrl+d",
+              run: () => void quickDelete(),
+            },
+            {
+              id: "waits.manager.edit",
+              title: "Edit the highlighted wait",
+              group: "Waits",
+              bind: "ctrl+e",
+              run: () => void quickEdit(),
+            },
+          ],
+        }))
+
         ctx.keymap.layer(() => ({
           // Without `global` the layer defaults to the `base` input mode and
           // is unreachable while the prompt is focused, so the commands run
