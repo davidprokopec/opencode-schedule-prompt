@@ -121,7 +121,7 @@ export default Plugin.define({
       const session = currentSession()
       const chosen = await ctx.ui.dialog.select<string>({
         title: `Waits (${waits.length} pending)`,
-        placeholder: "Search · enter acts on the selected wait",
+        placeholder: "Search waits",
         options: waits.map((wait) => ({
           title: `${wait.id}  ${wait.prompt}`,
           value: wait.id,
@@ -133,8 +133,14 @@ export default Plugin.define({
       })
       if (chosen === undefined) return
 
-      const wait = waits.find((candidate) => candidate.id === chosen)
-      if (wait === undefined) return
+      await openActions(chosen)
+    }
+
+    /** The action menu for one wait, shared by the list and the sidebar. */
+    const openActions = async (id: string) => {
+      const waits = await run(store.list)
+      const wait = waits.find((candidate) => candidate.id === id)
+      if (wait === undefined) return void fail(`Wait ${id} is gone.`)
       const action = await ctx.ui.dialog.select<Action>({
         title: `${wait.id}  ${wait.prompt}`,
         placeholder: "Search actions",
@@ -274,6 +280,7 @@ export default Plugin.define({
         Waits({
           title: `Waits (${mirror.rows.length})`,
           rows: mirror.rows,
+          onOpen: (id) => void openActions(id),
         }),
     })
 

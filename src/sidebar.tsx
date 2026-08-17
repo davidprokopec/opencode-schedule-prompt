@@ -21,11 +21,16 @@ const normal = "#c0caf5"
 export const Waits = (props: {
   readonly rows: ReadonlyArray<Row>
   readonly title: string
+  readonly onOpen: (id: string) => void
 }): JSX.Element => (
   <box flexDirection="column" paddingTop={1}>
     <text fg={accent}>{props.title}</text>
     {props.rows.map((row) => (
-      <box flexDirection="row" justifyContent="space-between">
+      <box
+        flexDirection="row"
+        justifyContent="space-between"
+        onMouseDown={() => props.onOpen(row.id)}
+      >
         <text fg={row.mine ? normal : muted}>
           {row.id} {row.prompt}
         </text>
