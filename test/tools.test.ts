@@ -3,7 +3,7 @@ import { Session } from "@opencode-ai/schema/session"
 import { Tool } from "@opencode-ai/schema/tool"
 import { Cause, Duration, Effect, Exit, Option } from "effect"
 import type { Wait } from "../src/domain.ts"
-import type { Interface as Scheduler, ScheduleInput } from "../src/scheduler.ts"
+import type { ScheduleInput, Interface as Scheduler } from "../src/scheduler.ts"
 import * as Tools from "../src/tools.ts"
 
 /** Builds a `Wait` with sensible defaults, overridable per test. */
@@ -215,10 +215,10 @@ describe("wait_schedule", () => {
     const context = fakeContext({ sessionID: wait.sessionID })
 
     const result = await Effect.runPromise(
-      tool.execute(
-        { duration: "5m", prompt: "  do the thing  " },
-        context,
-      ) as Effect.Effect<Tool.Result, Tool.Error>,
+      tool.execute({ duration: "5m", prompt: "  do the thing  " }, context) as Effect.Effect<
+        Tool.Result,
+        Tool.Error
+      >,
     )
 
     expect(calls.schedule).toHaveLength(1)
