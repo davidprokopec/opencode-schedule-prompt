@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/solid */
 import { RGBA } from "@opentui/core"
 import type { JSX } from "@opentui/solid"
 
