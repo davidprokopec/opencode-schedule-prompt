@@ -121,7 +121,7 @@ export default Plugin.define({
       const session = currentSession()
       const chosen = await ctx.ui.dialog.select<string>({
         title: `Waits (${waits.length} pending)`,
-        placeholder: "Search waits",
+        placeholder: "Search · enter acts on the selected wait",
         options: waits.map((wait) => ({
           title: `${wait.id}  ${wait.prompt}`,
           value: wait.id,
