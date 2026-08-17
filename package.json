@@ -15,8 +15,21 @@
     "./server": "./src/index.ts",
     "./tui": "./src/tui.ts"
   },
-  "files": ["src", "README.md", "LICENSE"],
-  "keywords": ["opencode", "opencode-plugin", "effect", "scheduler", "delay"],
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "effect",
+    "scheduler",
+    "delay"
+  ],
   "scripts": {
     "check": "bun run typecheck && bun run lint && bun test",
     "prepublishOnly": "bun run check",

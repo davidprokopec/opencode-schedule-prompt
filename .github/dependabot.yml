@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # Pinned action SHAs are safe but invisible to a human reading the diff, so
+  # let Dependabot move them and keep the version comment in step.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      dev:
+        dependency-type: development
+    # The OpenCode packages are pinned to the exact beta build the plugin is
+    # tested against; bumping them is a deliberate compatibility decision, not
+    # routine maintenance.
+    ignore:
+      - dependency-name: "@opencode-ai/*"
