@@ -2,7 +2,7 @@ import { Plugin } from "@opencode-ai/plugin/tui"
 import { Duration, Effect } from "effect"
 import type { Wait } from "./domain.ts"
 import * as WaitDuration from "./duration.ts"
-import { WaitMenu } from "./menu.tsx"
+import { type MenuRow, WaitMenu } from "./menu.tsx"
 import * as Node from "./node.ts"
 import { type Row, Waits } from "./sidebar.tsx"
 import * as Store from "./store.ts"
@@ -101,52 +101,86 @@ export default Plugin.define({
      * act on the highlighted one. Waits from other sessions are shown too, so
      * one scheduled elsewhere can still be found.
      */
-    const highlighted = { id: undefined as string | undefined }
-
     const reload = async (): Promise<ReadonlyArray<Wait>> => {
-      const waits = await run(store.list)
-      if (highlighted.id === undefined) highlighted.id = waits[0]?.id
-      return waits
+      return await run(store.list)
     }
+
+    /** Rows matching the current search, recomputed as the query changes. */
+    const visible = (): ReadonlyArray<MenuRow> => {
+      const query = menu.query.trim().toLowerCase()
+      if (query === "") return menu.rows
+      return menu.rows.filter((row) => row.label.toLowerCase().includes(query))
+    }
+
+    const move = (delta: number) =>
+      mutateMenu((draft) => {
+        const count = visible().length
+        if (count === 0) return
+        draft.index = (draft.index + delta + count) % count
+      })
 
     const openMenu = async () => {
       const waits = await reload()
-      if (waits.length === 0) {
-        setMenuOpen(false)
-        return void ctx.ui.toast.show({ title: "Waits", message: "No pending waits." })
-      }
-
       const now = Date.now()
       const session = currentSession()
-      const rows = waits.map((wait) => ({
+      const rows: MenuRow[] = waits.map((wait) => ({
         id: wait.id,
         label: `${wait.id}  ${wait.prompt}`,
-        description:
-          `fires in ${until(wait.firesAt, now)}` +
-          (wait.sessionID === session ? "" : "  ·  another session") +
-          (wait.attempts > 0 ? `  ·  ${wait.attempts} failed attempt(s)` : ""),
+        meta:
+          `in ${until(wait.firesAt, now)}` +
+          (wait.sessionID === session ? "" : "  ·  elsewhere") +
+          (wait.attempts > 0 ? `  ·  ${wait.attempts} failed` : ""),
       }))
 
-      highlighted.id = rows[0]?.id
-      setMenuOpen(true)
+      mutateMenu((draft) => {
+        draft.rows = rows
+        draft.query = ""
+        draft.index = 0
+        draft.open = true
+      })
+
+      const colors = {
+        text: ctx.theme.text.default,
+        subdued: ctx.theme.text.subdued,
+        key: ctx.theme.text.action.primary.default,
+        // The action background token resolves to nothing in some themes,
+        // which left dark selected text on an unchanged row. The primary
+        // action *text* colour is always visible, so it makes the bar.
+        selectedBackground: ctx.theme.text.action.primary.default,
+        selectedText: ctx.theme.background.default,
+        background: ctx.theme.background.surface.overlay,
+      }
+
       ctx.ui.dialog.show(
         () =>
           WaitMenu({
-            title: `Waits (${rows.length} pending)`,
-            rows,
-            hint: "enter send now · d delete · e edit prompt · r reschedule · esc close",
-            onHighlight: (id) => {
-              highlighted.id = id
-            },
-            onSelect: (id) => void act("send", id),
+            title: `Waits (${menu.rows.length})`,
+            rows: visible(),
+            selected: menu.index,
+            empty: menu.rows.length === 0 ? "No pending waits." : "No match.",
+            colors,
+            actions: [
+              { label: "send", key: "enter" },
+              { label: "delete", key: "ctrl+d" },
+              { label: "edit", key: "ctrl+e" },
+              { label: "reschedule", key: "ctrl+r" },
+            ],
+            onQuery: (value) =>
+              mutateMenu((draft) => {
+                draft.query = value
+                draft.index = 0
+              }),
           }),
         () => setMenuOpen(false),
       )
     }
 
+    /** The wait the keys act on. */
+    const current = (): string | undefined => visible()[menu.index]?.id
+
     /** Runs one manager action against a wait, then closes the dialog. */
     const act = async (action: "send" | "delete" | "edit" | "reschedule", id?: string) => {
-      const target = id ?? highlighted.id
+      const target = id ?? current()
       if (target === undefined) return
       const waits = await run(store.list)
       const wait = waits.find((candidate) => candidate.id === target)
@@ -248,12 +282,20 @@ export default Plugin.define({
 
     // Reactive so the manager's keymap layer can enable itself only while the
     // dialog is open; a plain boolean would not re-evaluate.
-    const [menu, mutateMenu] = ctx.storage.memory<{ open: boolean }>("menu", {
-      initial: { open: false },
-    })
+    const [menu, mutateMenu] = ctx.storage.memory<{
+      open: boolean
+      query: string
+      index: number
+      rows: MenuRow[]
+    }>("menu", { initial: { open: false, query: "", index: 0, rows: [] } })
+
     const setMenuOpen = (open: boolean) =>
       mutateMenu((draft) => {
         draft.open = open
+        if (!open) {
+          draft.query = ""
+          draft.index = 0
+        }
       })
 
     const refresh = async () => {
@@ -298,31 +340,45 @@ export default Plugin.define({
           enabled: () => menu.open,
           commands: [
             {
+              id: "schedule-prompt.menu.down",
+              title: "Next wait",
+              group: "Waits",
+              bind: "down",
+              run: () => move(1),
+            },
+            {
+              id: "schedule-prompt.menu.up",
+              title: "Previous wait",
+              group: "Waits",
+              bind: "up",
+              run: () => move(-1),
+            },
+            {
               id: "schedule-prompt.menu.delete",
               title: "Delete highlighted wait",
               group: "Waits",
-              bind: "d",
+              bind: "ctrl+d",
               run: () => void act("delete"),
             },
             {
               id: "schedule-prompt.menu.send",
               title: "Send highlighted wait now",
               group: "Waits",
-              bind: "s",
+              bind: "enter",
               run: () => void act("send"),
             },
             {
               id: "schedule-prompt.menu.edit",
               title: "Edit highlighted wait",
               group: "Waits",
-              bind: "e",
+              bind: "ctrl+e",
               run: () => void act("edit"),
             },
             {
               id: "schedule-prompt.menu.reschedule",
               title: "Reschedule highlighted wait",
               group: "Waits",
-              bind: "r",
+              bind: "ctrl+r",
               run: () => void act("reschedule"),
             },
           ],
