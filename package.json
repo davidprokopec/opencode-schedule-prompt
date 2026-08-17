@@ -15,6 +15,7 @@
   "keywords": ["opencode", "opencode-plugin", "effect", "scheduler", "delay"],
   "scripts": {
     "check": "bun run typecheck && bun run lint && bun test",
+    "prepublishOnly": "bun run check",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
