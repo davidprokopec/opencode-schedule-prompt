@@ -117,10 +117,6 @@ export default Plugin.define({
      */
     const openMenu = async () => {
       const waits = await run(store.list)
-      if (waits.length === 0) {
-        return void ctx.ui.toast.show({ title: "Waits", message: "No pending waits." })
-      }
-
       const now = Date.now()
       const session = currentSession()
       const chosen = await ctx.ui.dialog.select<string>({
