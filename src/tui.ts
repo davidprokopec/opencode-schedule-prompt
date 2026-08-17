@@ -55,10 +55,23 @@ export default Plugin.define({
       `${wait.id}  in ${Duration.format(Duration.millis(Math.max(0, wait.firesAt - now)))}  ${JSON.stringify(wait.prompt)}`
 
     const fail = (message: string) =>
-      ctx.ui.toast.show({ message, variant: "error", title: "wait" })
+      ctx.ui.toast.show({ message, variant: "error", title: "Waits" })
 
     const schedule = async (input?: string) => {
-      const text = (input ?? "").trim()
+      // The palette invokes commands with no input, so ask for it rather than
+      // dead ending on a usage message.
+      let text = (input ?? "").trim()
+      if (text === "") {
+        const answer = await ctx.ui.dialog.prompt({
+          title: "Schedule a wait",
+          description: "A delay, then the prompt to send once it elapses",
+          placeholder: "1hour implement this",
+        })
+        if (answer === undefined) return
+        text = answer.trim()
+        if (text === "") return
+      }
+
       const split = text.indexOf(" ")
       if (split < 1) {
         return void fail("Usage: /wait <duration> <prompt>, e.g. /wait 1hour implement this")
@@ -89,7 +102,7 @@ export default Plugin.define({
           }),
         )
         ctx.ui.toast.show({
-          title: "wait",
+          title: "Waits",
           variant: "success",
           message: `Scheduled ${wait.id} in ${Duration.format(duration)}. Cancel with /wait-cancel ${wait.id}.`,
         })
@@ -222,13 +235,15 @@ export default Plugin.define({
     const cancel = async (input?: string) => {
       const session = currentSession()
       const target = (input ?? "").trim()
+      // Without an id there is nothing to cancel, so hand over to the manager.
+      if (target === "") return void openMenu()
       const waits = await run(store.list)
       const mine = waits.filter((wait) => wait.sessionID === session)
 
       if (target === "all") {
         for (const wait of mine) await run(store.remove(wait.id))
         return void ctx.ui.toast.show({
-          title: "wait",
+          title: "Waits",
           message: mine.length === 0 ? "No pending waits to cancel." : `Cancelled ${mine.length}.`,
         })
       }
@@ -242,7 +257,7 @@ export default Plugin.define({
         )
       }
       await run(store.remove(found.id))
-      ctx.ui.toast.show({ title: "wait", variant: "success", message: `Cancelled ${found.id}.` })
+      ctx.ui.toast.show({ title: "Waits", variant: "success", message: `Cancelled ${found.id}.` })
     }
 
     // Mirrors the pending waits into host-owned reactive state. `storage.memory`
@@ -297,7 +312,7 @@ export default Plugin.define({
           commands: [
             {
               id: "schedule-prompt.wait",
-              title: "Schedule a prompt",
+              title: "Schedule a wait",
               description: "Send a prompt to this session after a delay, e.g. /wait 1hour do it",
               group: "Waits",
               palette: true,
@@ -318,7 +333,8 @@ export default Plugin.define({
               title: "Cancel a wait",
               description: "Cancel a scheduled prompt by id, or all of them",
               group: "Waits",
-              palette: true,
+              // Deliberately not in the palette: it needs an id, and the
+              // palette cannot supply one. View waits offers Delete instead.
               slash: { name: "wait-cancel", arguments: true },
               run: (input) => void cancel(input),
             },
