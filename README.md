@@ -69,6 +69,10 @@ The V2 plugin API is beta. This release is built and verified against
 If your OpenCode is on a different beta build, check for a matching release of
 this plugin.
 
+Always install with the explicit `@beta` tag. npm assigned `latest` during the
+one-time package bootstrap, but the release workflow never publishes or moves
+that tag while OpenCode V2 remains beta.
+
 ## Commands
 
 | Command                 | Effect                                                     |
