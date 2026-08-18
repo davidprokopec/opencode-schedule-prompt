@@ -14,11 +14,18 @@ name: Release (bootstrap, delete after first publish)
 
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        description: One-shot bootstrap operation
+        type: choice
+        options: [publish, remove-latest]
+        default: publish
 
 permissions: {}
 
 jobs:
   publish:
+    if: inputs.operation != 'remove-latest'
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -62,6 +69,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   tag:
+    if: inputs.operation != 'remove-latest'
     needs: publish
     runs-on: ubuntu-latest
     permissions:
@@ -83,3 +91,31 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/git/refs" \
             -f "ref=refs/tags/v$version" -f "sha=$GITHUB_SHA" >/dev/null
           gh release create "v$version" --generate-notes --verify-tag
+
+  remove-latest:
+    if: inputs.operation == 'remove-latest'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Pin npm
+        run: npm install -g npm@11.5.1
+
+      - name: Remove automatic latest tag
+        run: |
+          package="$(node -p "require('./package.json').name")"
+          npm dist-tag rm "$package" latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
