@@ -1,15 +1,15 @@
 {
-  "name": "opencode-waits",
-  "version": "0.1.6",
+  "name": "opencode2-waits",
+  "version": "0.2.0",
   "description": "OpenCode V2 plugin that defers a prompt: /wait 1hour implement this",
   "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/davidprokopec/opencode-waits.git"
+    "url": "git+https://github.com/davidprokopec/opencode2-waits.git"
   },
-  "homepage": "https://github.com/davidprokopec/opencode-waits#readme",
-  "bugs": "https://github.com/davidprokopec/opencode-waits/issues",
+  "homepage": "https://github.com/davidprokopec/opencode2-waits#readme",
+  "bugs": "https://github.com/davidprokopec/opencode2-waits/issues",
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/index.ts",
@@ -21,7 +21,8 @@
     "LICENSE"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "tag": "beta"
   },
   "keywords": [
     "opencode",

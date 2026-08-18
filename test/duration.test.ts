@@ -65,7 +65,7 @@ describe("duration.parse", () => {
       ["31d", "over the maximum"],
     ])("rejects %s (%s)", (input) => {
       const failure = failureOf(input)
-      expect(failure._tag).toBe("opencode-waits/InvalidDuration")
+      expect(failure._tag).toBe("opencode2-waits/InvalidDuration")
       expect(failure.reason.length).toBeGreaterThan(0)
     })
 
@@ -79,7 +79,7 @@ describe("duration.parse", () => {
 
     test("a duration one unit past the maximum is rejected", () => {
       const failure = failureOf("30d1s")
-      expect(failure._tag).toBe("opencode-waits/InvalidDuration")
+      expect(failure._tag).toBe("opencode2-waits/InvalidDuration")
     })
   })
 })

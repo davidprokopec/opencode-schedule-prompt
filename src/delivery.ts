@@ -14,7 +14,7 @@ export interface Interface {
   readonly deliver: (wait: Wait) => Effect.Effect<boolean>
 }
 
-export class Service extends Context.Service<Service, Interface>()("opencode-waits/Delivery") {}
+export class Service extends Context.Service<Service, Interface>()("opencode2-waits/Delivery") {}
 
 /**
  * The slice of the OpenCode session API this plugin needs.
@@ -46,7 +46,7 @@ export const layer = (session: SessionPort, options: Resolved): Layer.Layer<Serv
             // Reported rather than propagated: the caller decides whether to
             // re-arm, and nothing upstream of it can retry.
             Effect.catchCause((cause) =>
-              Effect.logError(`opencode-waits: failed to deliver wait ${wait.id}`, cause).pipe(
+              Effect.logError(`opencode2-waits: failed to deliver wait ${wait.id}`, cause).pipe(
                 Effect.as(false),
               ),
             ),

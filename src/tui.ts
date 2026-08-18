@@ -22,7 +22,7 @@ type Action = "send" | "delete" | "edit" | "reschedule"
  * still fires once the TUI is closed.
  */
 export default Plugin.define({
-  id: "opencode-waits",
+  id: "opencode2-waits",
   setup: (ctx) => {
     const store = Store.make(Node.fileSystem, Store.directory())
     const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>

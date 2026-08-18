@@ -56,7 +56,7 @@ export const make = (
       Ref.update(armed, (ids) => new Set([...ids].filter((x) => x !== id)))
 
     const logStoreFailure = (operation: string) => (error: Store.StoreError) =>
-      Effect.logError(`opencode-waits: ${operation}: ${error.display}`)
+      Effect.logError(`opencode2-waits: ${operation}: ${error.display}`)
 
     const load = store.list.pipe(
       Effect.catch((error) =>
@@ -83,7 +83,7 @@ export const make = (
             Effect.tap((owned) =>
               owned
                 ? Effect.void
-                : Effect.logInfo(`opencode-waits: ${wait.id} was already claimed elsewhere`),
+                : Effect.logInfo(`opencode2-waits: ${wait.id} was already claimed elsewhere`),
             ),
             // Conservative: a store that cannot be read must never risk a
             // second delivery, so an unknown failure counts as not owned.
@@ -102,7 +102,7 @@ export const make = (
         if (!alive) {
           // The claim already removed the record, so there is nothing to drop.
           yield* Effect.logInfo(
-            `opencode-waits: dropping ${wait.id}, session ${wait.sessionID} is gone`,
+            `opencode2-waits: dropping ${wait.id}, session ${wait.sessionID} is gone`,
           )
           return
         }
@@ -114,13 +114,13 @@ export const make = (
         const retry = Store.nextAttempt(wait, now)
         if (retry === undefined) {
           yield* Effect.logError(
-            `opencode-waits: giving up on ${wait.id} after ${wait.attempts} attempts`,
+            `opencode2-waits: giving up on ${wait.id} after ${wait.attempts} attempts`,
           )
           return
         }
 
         yield* Effect.logWarning(
-          `opencode-waits: delivery of ${wait.id} failed, re-arming attempt ${retry.attempts}`,
+          `opencode2-waits: delivery of ${wait.id} failed, re-arming attempt ${retry.attempts}`,
         )
         yield* store.update(retry).pipe(Effect.catch(logStoreFailure("could not re-arm wait")))
         yield* forget(wait.id)
@@ -138,7 +138,7 @@ export const make = (
         // that matured while OpenCode was not running.
         const delay = Math.max(0, wait.firesAt - now)
         if (delay > 0 && wait.firesAt < now) {
-          yield* Effect.logInfo(`opencode-waits: ${wait.id} is overdue, firing now`)
+          yield* Effect.logInfo(`opencode2-waits: ${wait.id} is overdue, firing now`)
         }
 
         yield* FiberMap.run(

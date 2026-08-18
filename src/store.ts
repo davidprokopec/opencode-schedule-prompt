@@ -30,7 +30,7 @@ export type WaitRecord = typeof WaitRecord.Type
 
 const decodeRecord = Schema.decodeUnknownOption(WaitRecord)
 
-export class StoreError extends Schema.TaggedError<StoreError>()("opencode-waits/StoreError", {
+export class StoreError extends Schema.TaggedError<StoreError>()("opencode2-waits/StoreError", {
   operation: Schema.String,
   path: Schema.String,
   reason: Schema.String,
@@ -50,6 +50,8 @@ export class StoreError extends Schema.TaggedError<StoreError>()("opencode-waits
 export const directory = (env: NodeJS.ProcessEnv = process.env): string => {
   const base = env.XDG_DATA_HOME?.trim()
   const root = base !== undefined && base !== "" ? base : join(homedir(), ".local", "share")
+  // Keep the original directory so pending waits survive migration from the
+  // previously published `opencode-waits` package.
   return join(root, "opencode-waits", "waits")
 }
 

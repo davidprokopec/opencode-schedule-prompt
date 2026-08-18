@@ -73,15 +73,9 @@ jobs:
       # No NODE_AUTH_TOKEN: authentication is the OIDC exchange, and provenance
       # is generated automatically when publishing this way.
       #
-      # Publishes to `latest`. The original plan was to hold releases on `beta`
-      # because this package pins an exact OpenCode beta build, but the first
-      # publish already claimed `latest` and npm cannot un-set that tag. A
-      # `latest` frozen on the oldest version is worse than one that moves:
-      # plain `npm i opencode-waits` would install stale code forever. The
-      # OpenCode version coupling is documented in the README instead. For a
-      # prerelease, publish with an explicit `--tag next`.
+      # V2 is still beta, so no release may claim or move npm's `latest` tag.
       - name: Publish
-        run: npm publish
+        run: npm publish --tag beta
 
   github-release:
     needs: publish

@@ -1,4 +1,4 @@
-# opencode-waits
+# opencode2-waits
 
 Defer a prompt in [OpenCode V2](https://opencode.ai/v2/docs/). Say what you want
 and when you want it, and OpenCode sends it to itself later.
@@ -14,6 +14,9 @@ tokens are burned while the timer is pending. When the delay elapses the plugin
 submits the prompt text into the same session as an ordinary user prompt, and
 OpenCode acts on it exactly as if you had typed it yourself.
 
+This package replaces the previously published `opencode-waits`. Existing
+pending waits remain compatible and continue using the original data directory.
+
 ## Install
 
 The plugin has two halves and needs an entry in **two** config files. The TUI
@@ -23,7 +26,7 @@ fires once the TUI is closed.
 ```jsonc
 // opencode.json(c) — the server half
 {
-  "plugins": ["opencode-waits"],
+  "plugins": ["opencode2-waits@beta"],
 }
 ```
 
@@ -32,7 +35,7 @@ fires once the TUI is closed.
 // The package name only: the TUI resolves its ./tui entrypoint itself, and a
 // /tui suffix would be read as part of the npm spec and fail to install.
 {
-  "plugins": ["opencode-waits"],
+  "plugins": ["opencode2-waits@beta"],
 }
 ```
 
@@ -42,7 +45,7 @@ With options:
 {
   "plugins": [
     {
-      "package": "opencode-waits",
+      "package": "opencode2-waits@beta",
       "options": {
         "delivery": "queue",
       },
@@ -58,7 +61,7 @@ With options:
 ### Compatibility
 
 The V2 plugin API is beta. This release is built and verified against
-`@opencode-ai/plugin@0.0.0-beta-17519` (`opencode2 --version` → `v0.0.0-beta-17519`).
+`@opencode-ai/plugin@0.0.0-beta-17595` (`opencode2 --version` → `v0.0.0-beta-17595`).
 If your OpenCode is on a different beta build, check for a matching release of
 this plugin.
 
@@ -98,7 +101,7 @@ own, so `1h30` is rejected as ambiguous rather than guessed at. The maximum is
 ## Waits survive restarts
 
 Each pending wait is a JSON file under
-`$XDG_DATA_HOME/opencode-waits/waits/` (a directory of one file per
+`$XDG_DATA_HOME/opencode-waits/waits/` (the legacy-compatible directory, with one file per
 wait, so the two halves never clobber each other's records). On startup the
 server half arms everything it finds, and fires anything already overdue
 immediately.
@@ -139,7 +142,7 @@ completion — the client-side command and the server fallback share names; the
 client one always wins on submit:
 
 ```jsonc
-{ "package": "opencode-waits", "options": { "tools": true } }
+{ "package": "opencode2-waits", "options": { "tools": true } }
 ```
 
 ## Development
@@ -155,7 +158,7 @@ To run it against a local checkout, point a config entry at the file:
 
 ```jsonc
 {
-  "plugins": ["/absolute/path/to/opencode-waits/src/index.ts"],
+  "plugins": ["/absolute/path/to/opencode2-waits/src/index.ts"],
 }
 ```
 

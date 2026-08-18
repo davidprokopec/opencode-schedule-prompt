@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Report privately through
-[GitHub Security Advisories](https://github.com/davidprokopec/opencode-waits/security/advisories/new).
+[GitHub Security Advisories](https://github.com/davidprokopec/opencode2-waits/security/advisories/new).
 Please do not open a public issue for a vulnerability.
 
 ## What this plugin can do
@@ -12,7 +12,8 @@ It runs inside OpenCode, in the background service and in the TUI, with the
 same privileges as OpenCode itself. Specifically it:
 
 - reads and writes JSON files under
-  `$XDG_DATA_HOME/opencode-waits/waits/` (default `~/.local/share/...`),
+  `$XDG_DATA_HOME/opencode-waits/waits/` (the legacy-compatible path, default
+  `~/.local/share/...`),
 - submits prompts into your OpenCode sessions when a wait matures,
 - makes no network requests of its own and runs no shell commands.
 
