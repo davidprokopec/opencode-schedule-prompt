@@ -4,7 +4,7 @@ import { Duration, Effect, Schema } from "effect"
  * unbounded delay would silently promise something it cannot keep. */
 export const maximum: Duration.Duration = Duration.days(30)
 
-export class InvalidDuration extends Schema.TaggedErrorClass<InvalidDuration>()(
+export class InvalidDuration extends Schema.TaggedError<InvalidDuration>()(
   "opencode-waits/InvalidDuration",
   {
     input: Schema.String,

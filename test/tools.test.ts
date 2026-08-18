@@ -131,7 +131,13 @@ describe("Tools.all", () => {
     for (const tool of tools) {
       const input: unknown = tool.input
 
-      if (typeof input === "object" && input !== null && "fields" in input) {
+      // effect 4.0.0-beta.107 made Struct schemas callable, so typeof is
+      // "function"; the fields property is what identifies a Struct.
+      if (
+        (typeof input === "object" || typeof input === "function") &&
+        input !== null &&
+        "fields" in input
+      ) {
         // An Effect `Schema.Struct`. An empty struct is exactly what
         // serializes to the untyped `anyOf` that broke Anthropic, so require
         // at least one declared field.

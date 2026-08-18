@@ -30,7 +30,7 @@ export type WaitRecord = typeof WaitRecord.Type
 
 const decodeRecord = Schema.decodeUnknownOption(WaitRecord)
 
-export class StoreError extends Schema.TaggedErrorClass<StoreError>()("opencode-waits/StoreError", {
+export class StoreError extends Schema.TaggedError<StoreError>()("opencode-waits/StoreError", {
   operation: Schema.String,
   path: Schema.String,
   reason: Schema.String,
