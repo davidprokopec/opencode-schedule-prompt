@@ -4,6 +4,7 @@ updates:
   # keep the trailing version comment in step.
   - package-ecosystem: github-actions
     directory: "/"
+    target-branch: develop
     schedule:
       interval: weekly
     groups:
@@ -17,6 +18,7 @@ updates:
   # still arrive, but fixes for those are a manual bump.
   - package-ecosystem: bun
     directory: "/"
+    target-branch: develop
     schedule:
       interval: weekly
     groups:

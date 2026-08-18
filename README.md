@@ -1,5 +1,9 @@
 # opencode2-waits
 
+[![CI](https://github.com/davidprokopec/opencode2-waits/actions/workflows/ci.yml/badge.svg)](https://github.com/davidprokopec/opencode2-waits/actions/workflows/ci.yml)
+[![npm beta](https://img.shields.io/npm/v/opencode2-waits/beta?label=npm%20beta)](https://www.npmjs.com/package/opencode2-waits)
+[![license](https://img.shields.io/npm/l/opencode2-waits)](LICENSE)
+
 Defer a prompt in [OpenCode V2](https://opencode.ai/v2/docs/). Say what you want
 and when you want it, and OpenCode sends it to itself later.
 

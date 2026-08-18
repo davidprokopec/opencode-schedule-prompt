@@ -1,14 +1,17 @@
 name: Release
 
-# Tag driven: `npm version <patch|minor|major>` then `git push --follow-tags`.
+# Tags publish reviewed betas. Develop publishes unique snapshots once the
+# repository variable NPM_PUBLISH_ENABLED is set to true after OIDC setup.
 on:
   push:
+    branches: [develop]
     tags: ["v*"]
 
 permissions: {}
 
 jobs:
   publish:
+    if: startsWith(github.ref, 'refs/tags/v') || vars.NPM_PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-latest
 
     # Publishing is gated on this environment, so npm credentials cannot be
@@ -47,9 +50,17 @@ jobs:
           bun run lint
           bun test
 
+      - name: Generate development version
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          base="$(node -p "require('./package.json').version")"
+          short="${GITHUB_SHA:0:7}"
+          npm version "$base-dev.$GITHUB_RUN_NUMBER.$short" --no-git-tag-version
+
       # Refuses to publish v1.2.3 from a tree whose package.json says anything
       # else, which is the easiest release mistake to make.
       - name: Check tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           tag="${GITHUB_REF_NAME#v}"
           pkg="$(node -p "require('./package.json').version")"
@@ -73,11 +84,16 @@ jobs:
       # No NODE_AUTH_TOKEN: authentication is the OIDC exchange, and provenance
       # is generated automatically when publishing this way.
       #
-      # V2 is still beta, so no release may claim or move npm's `latest` tag.
-      - name: Publish
+      - name: Publish beta
+        if: startsWith(github.ref, 'refs/tags/v')
         run: npm publish --tag beta
 
+      - name: Publish development snapshot
+        if: github.ref == 'refs/heads/develop'
+        run: npm publish --tag dev
+
   github-release:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: publish
     runs-on: ubuntu-latest
     permissions:
