@@ -29,8 +29,10 @@ fires once the TUI is closed.
 
 ```jsonc
 // cli.json — the TUI half, which provides /wait
+// The package name only: the TUI resolves its ./tui entrypoint itself, and a
+// /tui suffix would be read as part of the npm spec and fail to install.
 {
-  "plugins": ["opencode-waits/tui"],
+  "plugins": ["opencode-waits"],
 }
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "opencode-waits",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "OpenCode V2 plugin that defers a prompt: /wait 1hour implement this",
   "license": "MIT",
   "type": "module",
